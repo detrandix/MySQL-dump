@@ -141,12 +141,14 @@ class MySQLDump
 		if (!$view && ($mode & self::DATA)) {
 			fwrite($handle, 'ALTER ' . ($view ? 'VIEW' : 'TABLE') . ' ' . $delTable . " DISABLE KEYS;\n\n");
 			$numeric = [];
+			$boolean = [];
 			$res = $this->connection->query("SHOW COLUMNS FROM $delTable");
 			$cols = [];
 			while ($row = $res->fetch_assoc()) {
 				$col = $row['Field'];
 				$cols[] = $this->delimite($col);
 				$numeric[$col] = (bool) preg_match('#^[^(]*(BYTE|COUNTER|SERIAL|INT|LONG$|CURRENCY|REAL|MONEY|FLOAT|DOUBLE|DECIMAL|NUMERIC|NUMBER)#i', $row['Type']);
+				$boolean[$col] = (bool) preg_match('#^[^(]*(BIT)#i', $row['Type']);
 			}
 			$cols = '(' . implode(', ', $cols) . ')';
 			$res->close();
@@ -161,6 +163,8 @@ class MySQLDump
 						$s .= "NULL,\t";
 					} elseif ($numeric[$key]) {
 						$s .= $value . ",\t";
+					} elseif ($boolean[$key]) {
+						$s .= "CONV('" . $this->connection->real_escape_string($value) . "', 2, 10) + 0,\t";
 					} else {
 						$s .= "'" . $this->connection->real_escape_string($value) . "',\t";
 					}
